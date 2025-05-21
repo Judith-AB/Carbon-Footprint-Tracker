@@ -1,8 +1,10 @@
 // lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
-import '../../widgets/post_card.dart';
-import '../../models/post.dart';
-import '../../models/user.dart';
+import 'package:provider/provider.dart';
+import '../services/post_service.dart';
+import '../services/auth_service.dart';
+import '../models/user.dart';
+import '../widgets/post_card.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({Key? key}) : super(key: key);
@@ -12,54 +14,77 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  late List<Post> posts;
   late List<User> stories;
-  bool isLoading = true;
+  bool isLoadingStories = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadStories();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadStories() async {
     // In a real app, fetch from an API
     await Future.delayed(const Duration(seconds: 1));
 
     setState(() {
       stories = getSampleUsers();
-      posts = getSamplePosts();
-      isLoading = false;
+      isLoadingStories = false;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
-    }
+    final postService = Provider.of<PostService>(context);
 
     return RefreshIndicator(
-      onRefresh: _loadData,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        children: [
+      onRefresh: () async {
+        // Refresh posts logic would go here
+      },
+      child: CustomScrollView(
+        slivers: [
           // Stories section
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: stories.map((user) => _buildStoryAvatar(user)).toList(),
+          SliverToBoxAdapter(
+            child: isLoadingStories
+                ? const Padding(
+              padding: EdgeInsets.all(16),
+              child: Center(child: CircularProgressIndicator()),
+            )
+                : Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              child: SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  itemCount: stories.length,
+                  itemBuilder: (context, index) => _buildStoryAvatar(stories[index]),
+                ),
               ),
             ),
           ),
-          const SizedBox(height: 16),
 
           // Posts section
-          ...posts.map((post) => PostCard(post: post)),
+          postService.posts.isEmpty
+              ? const SliverFillRemaining(
+            child: Center(
+              child: Text('No posts yet. Create your first post!'),
+            ),
+          )
+              : SliverList(
+            delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: PostCard(post: postService.posts[index]),
+                );
+              },
+              childCount: postService.posts.length,
+            ),
+          ),
         ],
       ),
     );
@@ -144,43 +169,6 @@ class _HomeScreenState extends State<HomeScreen> {
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb',
         level: 6,
         carbonSaved: 1200,
-      ),
-    ];
-  }
-
-  List<Post> getSamplePosts() {
-    final users = getSampleUsers();
-
-    return [
-      Post(
-        id: 1,
-        user: users.firstWhere((u) => u.id == 5),
-        imageUrl: 'https://images.unsplash.com/photo-1541625602330-2277a4c46182',
-        caption: "Starting my day with a bike ride to work instead of driving! 🚲 Already saved 4.2kg of CO2 this week with my new commuting habit. #SustainableCommute #GreenLife",
-        impactType: 'Reduced car usage',
-        likes: 124,
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        comments: 2,
-      ),
-      Post(
-        id: 2,
-        user: users.firstWhere((u) => u.id == 3),
-        imageUrl: 'https://images.unsplash.com/photo-1560448205-4d9b3e6bb6db',
-        caption: "Took the plunge and finally got my EV! No more gas stations for me. According to the app, I'll save about 2 tons of CO2 per year compared to my old car. #ElectricRevolution #ZeroEmissions",
-        impactType: 'EV Adoption',
-        likes: 256,
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        comments: 2,
-      ),
-      Post(
-        id: 3,
-        user: users.firstWhere((u) => u.id == 4),
-        imageUrl: 'https://images.unsplash.com/photo-1625246333195-78d9c38ad449',
-        caption: "Weekend well spent at our neighborhood community garden! Growing our own food reduces carbon footprint from food transportation and packaging. Plus, the community vibes are amazing! #LocalFood #CommunityGarden",
-        impactType: 'Sustainable food choice',
-        likes: 89,
-        createdAt: DateTime.now().subtract(const Duration(days: 2)),
-        comments: 1,
       ),
     ];
   }

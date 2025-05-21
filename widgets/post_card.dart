@@ -1,9 +1,12 @@
 // lib/widgets/post_card.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/post.dart';
-import 'package:timeago/timeago.dart' as timeago;
+import '../services/post_service.dart';
+import 'package:intl/intl.dart';
 
-class PostCard extends StatefulWidget {
+class PostCard extends StatelessWidget {
   final Post post;
 
   const PostCard({
@@ -11,114 +14,121 @@ class PostCard extends StatefulWidget {
     required this.post,
   }) : super(key: key);
 
-  @override
-  State<PostCard> createState() => _PostCardState();
-}
+  String _getTimeAgo(DateTime dateTime) {
+    final difference = DateTime.now().difference(dateTime);
 
-class _PostCardState extends State<PostCard> {
-  late bool isLiked;
-  late int likesCount;
-
-  @override
-  void initState() {
-    super.initState();
-    isLiked = widget.post.isLiked;
-    likesCount = widget.post.likes;
-  }
-
-  void _toggleLike() {
-    setState(() {
-      isLiked = !isLiked;
-      likesCount = isLiked ? likesCount + 1 : likesCount - 1;
-    });
+    if (difference.inDays > 7) {
+      return DateFormat.yMMMd().format(dateTime);
+    } else if (difference.inDays > 0) {
+      return '${difference.inDays} ${difference.inDays == 1 ? 'day' : 'days'} ago';
+    } else if (difference.inHours > 0) {
+      return '${difference.inHours} ${difference.inHours == 1 ? 'hour' : 'hours'} ago';
+    } else if (difference.inMinutes > 0) {
+      return '${difference.inMinutes} ${difference.inMinutes == 1 ? 'minute' : 'minutes'} ago';
+    } else {
+      return 'Just now';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final postService = Provider.of<PostService>(context);
+
     return Card(
+      elevation: 1,
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Post header
+          // Post header with user info
           Padding(
             padding: const EdgeInsets.all(12),
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundImage: NetworkImage(widget.post.user.avatarUrl),
                   radius: 20,
+                  backgroundImage: post.user.avatarUrl.startsWith('http')
+                      ? NetworkImage(post.user.avatarUrl) as ImageProvider
+                      : FileImage(File(post.user.avatarUrl)),
                 ),
                 const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      widget.post.user.displayName,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        post.user.displayName,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    Text(
-                      timeago.format(widget.post.createdAt),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                      Text(
+                        _getTimeAgo(post.createdAt),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-                const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.more_vert),
-                  onPressed: () {},
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    // Show post options
+                  },
                 ),
               ],
             ),
           ),
 
           // Post image
-          Image.network(
-            widget.post.imageUrl,
-            width: double.infinity,
-            height: 300,
-            fit: BoxFit.cover,
+          AspectRatio(
+            aspectRatio: 1.0,
+            child: post.imageUrl.startsWith('http')
+                ? Image.network(
+              post.imageUrl,
+              fit: BoxFit.cover,
+            )
+                : Image.file(
+              File(post.imageUrl),
+              fit: BoxFit.cover,
+            ),
           ),
 
           // Post actions
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             child: Row(
               children: [
                 IconButton(
                   icon: Icon(
-                    isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: isLiked ? Colors.red : null,
+                    post.isLiked ? Icons.favorite : Icons.favorite_border,
+                    color: post.isLiked ? Colors.red : null,
+                    size: 28,
                   ),
-                  onPressed: _toggleLike,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    postService.toggleLike(post.id);
+                  },
                 ),
-                const SizedBox(width: 16),
                 IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  onPressed: () {},
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  icon: const Icon(
+                    Icons.chat_bubble_outline,
+                    size: 24,
+                  ),
+                  onPressed: () {
+                    // Show comments
+                  },
                 ),
-                const SizedBox(width: 16),
                 IconButton(
-                  icon: const Icon(Icons.share),
-                  onPressed: () {},
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                  icon: const Icon(
+                    Icons.share_outlined,
+                    size: 24,
+                  ),
+                  onPressed: () {
+                    // Share post
+                  },
                 ),
               ],
             ),
@@ -126,15 +136,13 @@ class _PostCardState extends State<PostCard> {
 
           // Post content
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '$likesCount likes',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  '${post.likes} likes',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 4),
                 RichText(
@@ -142,68 +150,64 @@ class _PostCardState extends State<PostCard> {
                     style: const TextStyle(color: Colors.black),
                     children: [
                       TextSpan(
-                        text: widget.post.user.displayName,
+                        text: post.user.displayName,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      TextSpan(
-                        text: ' ${widget.post.caption}',
-                      ),
+                      const TextSpan(text: ' '),
+                      TextSpan(text: post.caption),
                     ],
                   ),
                 ),
-                if (widget.post.comments > 0)
+
+                // Impact type tag
+                if (post.impactType != null)
                   Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'View all ${widget.post.comments} comments',
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.eco,
+                            size: 14,
+                            color: Theme.of(context).primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            post.impactType!,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Theme.of(context).primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
 
-                // Comment form
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  child: Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 16,
-                        backgroundImage: NetworkImage(
-                          'https://images.unsplash.com/photo-1568602471122-7832951cc4c5',
-                        ),
+                // Comments preview
+                if (post.comments > 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      'View all ${post.comments} comments',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          decoration: const InputDecoration(
-                            hintText: 'Add a comment...',
-                            border: InputBorder.none,
-                            isDense: true,
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                          style: const TextStyle(fontSize: 14),
-                        ),
-                      ),
-                      TextButton(
-                        onPressed: () {},
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.zero,
-                          minimumSize: const Size(40, 30),
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        child: Text(
-                          'Post',
-                          style: TextStyle(
-                            color: Theme.of(context).primaryColor,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                ),
+
+                const SizedBox(height: 12),
               ],
             ),
           ),

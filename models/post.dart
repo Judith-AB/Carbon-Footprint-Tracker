@@ -1,16 +1,17 @@
 // lib/models/post.dart
 import 'user.dart';
 
+// lib/models/post.dart
 class Post {
   final int id;
   final User user;
   final String imageUrl;
   final String caption;
   final String? impactType;
-  final int likes;
+  int likes;
   final DateTime createdAt;
   final int comments;
-  final bool isLiked;
+  bool isLiked;
 
   Post({
     required this.id,
@@ -24,3 +25,4 @@ class Post {
     this.isLiked = false,
   });
 }
+
